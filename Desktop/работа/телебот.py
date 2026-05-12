@@ -1,3 +1,4 @@
+import json
 import asyncio                                                                      
 import logging
 from aiogram import Bot, Dispatcher, types
@@ -14,12 +15,29 @@ dp = Dispatcher()
 
 tasks = {}
 
-zametki = ['погладить', 'поспать']
-
+nigger = False
 flag_AI = False
 flag_add = False
 flag_del = False
+flag_change = False
 flag_change2 = False
+
+def load_data():
+    global zametki, napominalki
+    try:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        zametki = data['заметки']
+        napominalki = data['напоминалки']
+    except FileNotFoundError:
+        zametki = []
+        napominalki = []
+
+def save_data():
+    data = {'заметки': zametki,
+            'напоминалки': napominalki}
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 def main_keyboard():                            #клавиатура главное меню
     buttons = [
@@ -34,6 +52,7 @@ def back_keyboard():                                #клавиатура с к�
         keyboard=[[KeyboardButton(text='назад')]], 
         resize_keyboard=True
     )
+
 
 def zametki_keyboard():
     buttons = [
@@ -58,7 +77,8 @@ def proverka(message):
 
 
 @dp.message(Command("start"))
-async def start(message: Message):                              #главное меню
+async def start(message: Message):   
+    load_data()                           #главное меню
     await message.answer('Выберіте операцію',
     reply_markup=main_keyboard()
     )
@@ -79,28 +99,29 @@ async def ai_chat(message: Message):
 async def get_question(message: types.Message):                             # вывод ответа ИИ
     Answer = AI(message.text)
     await message.answer(Answer, reply_markup=back_keyboard())
-    global flag_AI
-    flag_AI = False
-
-
-
 
 
 def show_zametki():
-    answer = ''
-    for i in range(len(zametki)):
-        answer = answer + f'{i+1}. {zametki[i]} \n'
-    return answer
+    if zametki != []:
+        answer = ''
+        for i in range(len(zametki)):
+            answer = answer + f'{i+1}. {zametki[i]} \n'
+        return answer
+    else:
+        return ('заметки еще не добавлены')
 
 def add_zametki(user_message):
     zametki.append(user_message)
+    save_data()
     
 
 def delete_zametki(index):
     del zametki[index-1]
+    save_data()
 
 def change_zametki(index, text):
     zametki[index-1] = text
+    save_data()
     
 
 
@@ -157,24 +178,26 @@ async def deleting_zametki(message: Message):
     global flag_del
     flag_del = False
 
-#изменение заметок в плюсппппппппппппппппп
+#изменение заметок
 
 @dp.message(lambda message: message.text and message.text == 'изменить заметки')
 async def change_zametki_chat(message: Message):
     await message.answer('Введите номер заметки, которую нужно изменить', reply_markup=ReplyKeyboardRemove())
-    global flag_change2
-    flag_change2 = True
+    global flag_change
+    flag_change = True
     answer = show_zametki()
     await message.answer(answer, reply_markup=ReplyKeyboardRemove())
 
 
-@dp.message(lambda message: proverka(message) and flag_change2)
+@dp.message(lambda message: proverka(message) and flag_change)
 async def changing_zametki(message: Message):
     if (message.text).isdigit():
         global index
         index = int(message.text)
         if index > 0 and index <= len(zametki):
             await message.answer('Введите текст изменённой заметки', reply_markup=ReplyKeyboardRemove())
+            global flag_change
+            flag_change = False
         else:
             await message.answer('неверный номер', reply_markup=zametki_keyboard())
     else:
@@ -187,15 +210,15 @@ async def changing_zametki(message: Message):
 async def changing_zametki(message: Message):
     change_zametki(index, message.text)
     await message.answer('Заметка успешно изменена', reply_markup=zametki_keyboard())
-    global flag_change
-    flag_change = True
     global flag_change2
-    flag_change2 = True
+    flag_change2 = False
 
 
 
 @dp.message(lambda message: message.text and message.text == 'назад')
 async def back(message: Message):
+    global flag_AI
+    flag_AI = False
     await start(message)
 
 
